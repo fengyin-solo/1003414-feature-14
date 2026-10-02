@@ -14,9 +14,49 @@
     <div class="stat-row">
       <article v-for="item in stats" :key="item.label" class="stat-card">
         <span class="stat-label">{{ item.label }}</span>
-        <strong class="stat-value">{{ item.value }}</strong>
+        <strong class="stat-value" :class="{ alert: item.alert && item.value > 0 }">{{ item.value }}</strong>
       </article>
     </div>
+
+    <section class="todo-panel">
+      <header class="todo-head">
+        <h3>值勤物资待办（实际库存低于预警储备量，由物资储备页同步）</h3>
+        <button class="btn" type="button" @click="reload">重新对账</button>
+      </header>
+      <table v-if="supplyTodos.length" class="data-table">
+        <thead>
+          <tr>
+            <th>待办编号</th>
+            <th>物资编号</th>
+            <th>物资名称</th>
+            <th>储备林场</th>
+            <th>预警储备量</th>
+            <th>实际储备量</th>
+            <th>缺口量</th>
+            <th>物资状态</th>
+            <th>产生时间</th>
+            <th>处置</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="todo in supplyTodos" :key="String(todo.id)" class="todo-row">
+            <td>{{ todo['待办编号'] }}</td>
+            <td>{{ todo['物资编号'] }}</td>
+            <td>{{ todo['物资名称'] }}</td>
+            <td>{{ todo['储备林场'] }}</td>
+            <td>{{ todo['预警储备量'] }}</td>
+            <td class="short-cell">{{ todo['实际储备量'] }}</td>
+            <td class="short-cell">{{ todo['缺口量'] }}</td>
+            <td><span class="status-chip">{{ todo['物资状态'] }}</span></td>
+            <td>{{ todo['产生时间'] }}</td>
+            <td>
+              <RouterLink class="link" :to="{ path: '/supply' }">前往补库复核</RouterLink>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p v-else class="todo-empty">暂无物资待办：所有防火物资实际库存均不低于预警储备量（或缺口物资已过期，走报废更换流程）。</p>
+    </section>
 
     <p class="status-legend">
       <span v-for="item in statusSummary" :key="item.status" class="legend-item">
@@ -79,19 +119,28 @@ import {
   moduleMeta,
   runAction as applyAction,
 } from '@/api/local-service'
+import { listOpenDutyTodos } from '@/api/supply-service'
 import type { EntryRow } from '@/data/types'
 
 const meta = moduleMeta('duty')
 const columns = ["排班编号", "值勤日期", "值勤时段", "值勤岗位", "值勤人员", "接班人员", "交接记录", "排班状态"]
 const actions = ["确认排班", "记录交接", "申请调班"]
 const statuses = ["待确认", "已确认", "值勤中", "已交接", "已调班"]
-const stats = [{"label": "今日值勤人数", "value": 0}, {"label": "待交接次数", "value": 0}, {"label": "调班申请数", "value": 0}]
 
 const rows = ref<EntryRow[]>([])
+const supplyTodos = ref<EntryRow[]>([])
 const total = ref(0)
 const errorMessage = ref('')
 const filters = ref<Record<string, string>>({})
 const filterFields = columns.slice(0, 3)
+
+const stats = computed(() => [
+  { label: "今日值勤人数", value: rows.value.length, alert: false },
+  { label: "值勤物资待办", value: supplyTodos.value.length, alert: true },
+  { label: "待交接次数", value: rows.value.filter((row) => String(row.status) === '待确认').length, alert: false },
+  { label: "调班申请数", value: rows.value.filter((row) => String(row.status) === '已调班').length, alert: false },
+])
+
 const statusSummary = computed(() =>
   statuses.map((status: string) => ({
     status,
@@ -128,6 +177,8 @@ function reload() {
     const payload = listEntries(meta.key, filters.value)
     rows.value = payload.items
     total.value = payload.total
+    // 读时对账：物资页扣增/入库后的缺口变化，这里立即体现为待办增删与数量更新。
+    supplyTodos.value = listOpenDutyTodos()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '值勤排班列表读取失败'
   }
@@ -135,3 +186,47 @@ function reload() {
 
 onMounted(reload)
 </script>
+
+<style scoped>
+.todo-panel {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+.todo-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.todo-head h3 {
+  margin: 0;
+  font-size: 14px;
+}
+.todo-row {
+  background: #fffdf5;
+}
+.short-cell {
+  color: #b42318;
+  font-weight: 600;
+}
+.status-chip {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  background: #ffedd5;
+  color: #9a3412;
+}
+.todo-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 8px 2px;
+}
+.stat-value.alert {
+  color: #b42318;
+}
+</style>

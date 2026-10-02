@@ -68,4 +68,9 @@ npm run build
 - 字段、状态、动作与流转目标集中在 `frontend/src/data/modules.ts`；示例数据在
   `frontend/src/data/seed.ts`。
 - 状态流转只允许在 `local-service.ts` 里改，页面组件不做业务判断。
+- 防火物资走专属链路 `src/api/supply-service.ts`：库存状态/值勤待办以「实际储备量 vs 预警储备量」
+  读时对账（已过期 > 在途补充单 > 低于预警 > 充足）；补充台账 append-only，旧记录按当时数量保留；
+  确认入库是唯一扣增点（单飞锁 + 台账状态守卫），物资、台账、待办多表事务提交，落库失败整条回退。
+  实际库存低于预警时，值勤排班页同步出现一项「值勤物资待办」，补到预警以上或物资过期后自动消除。
 - 想回到初始数据：清掉浏览器里 `forest-fire-patrol:entries` 这一项，或调用 `resetModule(模块)`。
+  数据结构升级会按 `forest-fire-patrol:version` 自动迁移，只重置受影响模块，其它模块数据保留。

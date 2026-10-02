@@ -69,3 +69,9 @@ npm run build
   `frontend/src/data/seed.ts`。
 - 状态流转只允许在 `local-service.ts` 里改，页面组件不做业务判断。
 - 想回到初始数据：清掉浏览器里 `forest-fire-patrol:entries` 这一项，或调用 `resetModule(模块)`。
+- 物资储备的「发起补充 / 确认补充」走专用补充链：发起只开补充台账（持久化在
+  `forest-fire-patrol:supply-ledger`），确认才按台账快照数量做一次实际扣增；同一物资
+  同时只允许一笔在途补充，落库失败整条回退到原物资记录。实际储备量低于预警储备量的
+  物资会作为「值勤物资待办」同步出现在运营概览页。
+- 补充链行为可用 `cd frontend && npm run verify:supply` 回归验证（并发幂等、失败回退、
+  刷新一致性等 12 项断言）。

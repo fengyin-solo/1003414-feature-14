@@ -85,3 +85,6 @@ desktop.ini
 *.db
 *.pid
 *.seed
+
+# ===== 验证脚本临时产物 =====
+frontend/scripts/.*.bundle.mjs
